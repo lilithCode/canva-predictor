@@ -1,55 +1,79 @@
-/* Here's what we're doing
-        Canvas Image [height, width, 3]
-        ↓
-        Tensor [1,28,28,1]
-        ↓
-        model.predict()
-        ↓
-        Tensor [1,numClasses] where 1 is batch image and numClasses is number of possible classes from model
-        ↓
-        .data() to get typed array
-        ↓
-        [probabilities]
-*/
 import * as tf from "@tensorflow/tfjs";
-export function preprocessImage(canvas: HTMLCanvasElement) {
-  return tf.tidy(() => { //auto delete the intermediate tensors to free memory
-    const tensor = tf.browser
-      .fromPixels(canvas) //this give the shape [height, width, 3]
-      .resizeNearestNeighbor([28, 28]) //new shape is [28, 28, 3]
-      .mean(2) //convert to grayscale as mean of rgb channels becomes single channel [28, 28]
-      .expandDims(0) //add batch dimension, new shape is [1, 28, 28]
-      .expandDims(-1) //add channel dimension, new shape is [1, 28, 28, 1]
-      .toFloat();  //convert to float32
+import "@tensorflow/tfjs-backend-webgl";
+import { LABELS } from "./labels";
 
-    const normalized = tensor.div(tf.scalar(255.0)); //normalize to [0, 1]
-    const inverted = tf.scalar(1.0).sub(normalized); //invert colors: background black, drawing white
-
-    return inverted;
-  });
-
-}
 let cachedModel: tf.LayersModel | null = null;
 
-export async function loadModel(): Promise<tf.LayersModel> {
-  if (cachedModel) return cachedModel; // Return immediately if already loaded
-
-  try {
-    cachedModel = await tf.loadLayersModel("/model/model.json");
-    console.log("Model loaded successfully!");
-    return cachedModel;
-  } catch (error) {
-    console.error("Failed to load model:", error);
-    throw error;
-  }
+export async function loadModel() {
+  if (cachedModel) return cachedModel;
+  await tf.ready();
+  cachedModel = await tf.loadLayersModel("/model/model.json");
+  return cachedModel;
 }
 
-// Make prediction from the canvas using the loaded model and return as array of possibilities
-export async function makePrediction(canvas: HTMLCanvasElement, model: tf.LayersModel): Promise<number[]> {
-    const preprocessed = preprocessImage(canvas);
-    const prediction = model.predict(preprocessed) as tf.Tensor; 
-    const predictionArray = await prediction.data(); // get data as typed array
-    preprocessed.dispose();
-    prediction.dispose();
-    return Array.from(predictionArray); // convert to regular array
+export async function predict(paths: number[][][]) {
+  if (paths.length === 0) return [];
+  const model = await loadModel();
+
+  const procCanvas = document.createElement("canvas");
+  procCanvas.width = 28;
+  procCanvas.height = 28;
+  const ctx = procCanvas.getContext("2d")!;
+
+  // 1. Find the boundaries of the drawing
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  paths.forEach((stroke) => {
+    stroke.forEach(([x, y]) => {
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    });
+  });
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const maxDim = Math.max(width, height);
+  const scale = maxDim === 0 ? 1 : 20 / maxDim; // Fit inside 20px (padding)
+  const offsetX = (28 - width * scale) / 2;
+  const offsetY = (28 - height * scale) / 2;
+
+  // 2. Render to 28x28
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, 28, 28);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 2.0;
+  ctx.strokeStyle = "black";
+
+  paths.forEach((stroke) => {
+    ctx.beginPath();
+    stroke.forEach(([x, y], i) => {
+      const px = (x - minX) * scale + offsetX;
+      const py = (y - minY) * scale + offsetY;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+  });
+
+  // 3. Inference
+  const results = tf.tidy(() => {
+    const tensor = tf.browser.fromPixels(procCanvas, 1).toFloat().div(255);
+    const inverted = tf.scalar(1.0).sub(tensor); // AI wants white lines on black
+    const input = inverted.reshape([1, 28, 28, 1]);
+    const prediction = model.predict(input) as tf.Tensor;
+    return prediction.dataSync();
+  });
+
+  return Array.from(results)
+    .map((prob, i) => ({
+      className: LABELS[i],
+      probability: prob as number,
+    }))
+    .sort((a, b) => b.probability - a.probability)
+    .slice(0, 3);
 }
