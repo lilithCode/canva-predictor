@@ -37,7 +37,7 @@ export default function LoadingScreen() {
       >
         <img
           src="/LilithSVG/Welcome.svg"
-          className="w-98 h-98 mb-8 drop-shadow-lg"
+          className="w-96 h-96 mb-8 drop-shadow-lg"
           alt="Welcome"
         />
         <div className="space-y-4">
