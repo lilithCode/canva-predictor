@@ -1,176 +1,122 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
+import { Undo2, Redo2, Eraser, Sparkles } from "lucide-react";
 
-interface CanvasProps {
-  onGuess: (paths: number[][][]) => void;
-}
-
-export default function Canvas({ onGuess }: CanvasProps) {
+export default function Canvas({
+  onGuess,
+  isProcessing,
+}: {
+  onGuess: any;
+  isProcessing: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [brushSize, setBrushSize] = useState(12);
-  const [brushColor, setBrushColor] = useState("#0f172a");
   const [paths, setPaths] = useState<number[][][]>([]);
+  const [redoStack, setRedoStack] = useState<number[][][]>([]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = 600;
-      canvas.height = 600;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-    }
-  }, []);
-
-  const getPointer = (e: React.MouseEvent | React.TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const x =
-      "touches" in e && e.touches.length
-        ? e.touches[0].clientX - rect.left
-        : "clientX" in e
-        ? e.clientX - rect.left
-        : 0;
-    const y =
-      "touches" in e && e.touches.length
-        ? e.touches[0].clientY - rect.top
-        : "clientY" in e
-        ? e.clientY - rect.top
-        : 0;
-    return { x, y };
-  };
-
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsDrawing(true);
-    const { x, y } = getPointer(e);
-    // Start a new stroke path
-    setPaths((prev) => [...prev, [[x, y]]]);
-
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) {
+    if (!ctx) return;
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, 600, 600);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = "#5d4a4a";
+
+    paths.forEach((stroke) => {
       ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineWidth = brushSize;
-      ctx.strokeStyle = brushColor;
-    }
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    const { x, y } = getPointer(e);
-
-    // Record coordinate
-    setPaths((prev) => {
-      const newPaths = [...prev];
-      newPaths[newPaths.length - 1].push([x, y]);
-      return newPaths;
-    });
-
-    const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) {
-      ctx.lineTo(x, y);
+      stroke.forEach(([x, y], i) => {
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
       ctx.stroke();
-    }
+    });
+  }, [paths]);
+
+  const startDrawing = (e: any) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const x =
+      ((e.clientX || e.touches[0].clientX) - rect.left) * (600 / rect.width);
+    const y =
+      ((e.clientY || e.touches[0].clientY) - rect.top) * (600 / rect.height);
+    setIsDrawing(true);
+    setPaths([...paths, [[x, y]]]);
+    setRedoStack([]);
   };
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
+  const draw = (e: any) => {
+    if (!isDrawing) return;
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const x =
+      ((e.clientX || e.touches[0].clientX) - rect.left) * (600 / rect.width);
+    const y =
+      ((e.clientY || e.touches[0].clientY) - rect.top) * (600 / rect.height);
+    const newPaths = [...paths];
+    newPaths[newPaths.length - 1].push([x, y]);
+    setPaths(newPaths);
   };
 
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (canvas && ctx) {
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    setPaths([]);
+  const undo = () => {
+    if (paths.length === 0) return;
+    setRedoStack([...redoStack, paths[paths.length - 1]]);
+    setPaths(paths.slice(0, -1));
+  };
+
+  const redo = () => {
+    if (redoStack.length === 0) return;
+    setPaths([...paths, redoStack[redoStack.length - 1]]);
+    setRedoStack(redoStack.slice(0, -1));
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="bg-[#FFF8F2] p-4 rounded-2xl shadow-[0_8px_24px_rgba(75,52,40,0.10)] border border-[#E9DCCF]">
+    <div className="flex flex-col items-center gap-8">
+      <div className="relative p-6 bg-[#fffcf9] rounded-[50px] border-8 border-[#ffefef] shadow-[0_25px_0_#ffefef]">
         <canvas
           ref={canvasRef}
+          width={600}
+          height={600}
           onMouseDown={startDrawing}
           onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
+          onMouseUp={() => setIsDrawing(false)}
+          onMouseLeave={() => setIsDrawing(false)} // This fixes the "out-of-bounds" drawing bug
           onTouchStart={startDrawing}
           onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-          className="border-4 border-[#7F4F2B] rounded-xl cursor-crosshair bg-[#FFF8F2] touch-none max-w-[90vw] md:max-w-[600px]"
-          style={{ touchAction: "none" }}
+          onTouchEnd={() => setIsDrawing(false)}
+          className="w-full max-w-[450px] aspect-square bg-white rounded-[40px] cursor-crosshair touch-none"
         />
-      </div>
 
-      <div className="flex flex-col md:flex-row gap-3 items-center">
-        <div className="flex items-center gap-4 bg-[#FFF5EE] p-3 rounded-lg border border-[#E6D7C8]">
-          <label className="text-sm text-[#6b4f3a] font-medium">Brush</label>
-          <input
-            type="range"
-            min={4}
-            max={40}
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="canva-range"
-            style={{ "--thumb": brushColor, "--track": "#7F4F2B" } as any}
-          />
-          <input
-            type="color"
-            value={brushColor}
-            onChange={(e) => setBrushColor(e.target.value)}
-            className="canva-color"
-          />
-        </div>
-
-        <div className="flex gap-3">
+        <div className="absolute -left-4 top-1/2 -translate-y-1/2 flex flex-col gap-3">
           <button
-            onClick={clearCanvas}
-            className="bg-[#EAD9C9] text-[#6b4f3a] px-5 py-2 rounded-lg font-semibold hover:bg-[#E0CBB6] transition shadow-sm"
+            onClick={undo}
+            className="p-4 bg-white border-4 border-[#ffefef] rounded-2xl shadow-lg hover:bg-pink-50 transition-all text-[#ff8e8e]"
           >
-            Clear
+            <Undo2 />
           </button>
           <button
-            onClick={() => onGuess(paths)}
-            className="bg-[#7F4F2B] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#5f3a25] transition shadow-lg"
+            onClick={redo}
+            className="p-4 bg-white border-4 border-[#ffefef] rounded-2xl shadow-lg hover:bg-pink-50 transition-all text-[#ff8e8e]"
           >
-            Now Guess!
+            <Redo2 />
+          </button>
+          <button
+            onClick={() => setPaths([])}
+            className="p-4 bg-white border-4 border-[#ffefef] rounded-2xl shadow-lg hover:bg-red-50 transition-all text-red-300"
+          >
+            <Eraser />
           </button>
         </div>
       </div>
 
-      <style jsx>{`
-        .canva-range {
-          appearance: none;
-          width: 150px;
-          height: 8px;
-          background: #7f4f2b;
-          border-radius: 5px;
-        }
-        .canva-range::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: var(--thumb);
-          cursor: pointer;
-          border: 2px solid white;
-        }
-        .canva-color {
-          width: 35px;
-          height: 35px;
-          border-radius: 50%;
-          border: none;
-          cursor: pointer;
-        }
-      `}</style>
+      <button
+        disabled={isProcessing || paths.length === 0}
+        onClick={() => onGuess(paths)}
+        className="px-12 py-5 bg-[#ff8e8e] text-white text-2xl font-black rounded-full shadow-[0_10px_0_#e57373] hover:translate-y-1 active:shadow-none transition-all flex items-center gap-4 disabled:opacity-50"
+      >
+        <Sparkles fill="white" />{" "}
+        {isProcessing ? "JUDGING YOUR ART..." : "REVEAL!"}
+      </button>
     </div>
   );
 }

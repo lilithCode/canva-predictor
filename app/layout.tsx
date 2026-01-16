@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Canvas Predictor",
+  title: "Lilith's Canvas",
   description: "Let the AI guess",
 };
 
