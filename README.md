@@ -6,7 +6,7 @@ A client-side drawing recognition web app built with Next.js, Tailwind CSS and T
 You can view the live application here:  
 https://lilith-canvas.vercel.app/
 
-![App Screenshot](assets/screenshot.png)
+![App Screenshot](https://raw.githubusercontent.com/lilithCode/canva-predictor/main/public/assets/screenshot.png)
 
 
 ## Key features
