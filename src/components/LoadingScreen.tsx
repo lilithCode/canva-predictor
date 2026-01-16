@@ -1,16 +1,32 @@
 "use client";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 export default function LoadingScreen() {
-  const welcomeLines = [
-    "Wait, let me find my glasses...",
-    "Is your art better than last time? Let's see.",
-    "Checking if the canvas is properly dusted...",
-    "Hold on, I'm trying to remember where I put your brush.",
-    "Doodling is like a therapy, is that for you too?",
-    "Hope you know the difference between maroon and burgundy!",
+  
+  const [welcomeLine, setWelcomeLine] = useState("");
 
-  ];
+  useEffect(() => {
+    
+    const welcomeLines = [
+      "Wait, let me find my glasses...",
+      "Is your art better than last time? Let's see.",
+      "Checking if the canvas is properly dusted...",
+      "Hold on, I'm trying to remember where I put your brush.",
+      "Doodling is like a therapy, is that for you too?",
+      "Hope you know the difference between maroon and burgundy!",
+    ];
+
+    const randomLine =
+      welcomeLines[Math.floor(Math.random() * welcomeLines.length)];
+    setWelcomeLine(randomLine);
+  }, []);
+
+  
+  
+  if (!welcomeLine) {
+    return <div className="fixed inset-0 bg-[#fffcf9]" />; 
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#fffcf9] overflow-hidden">
@@ -21,12 +37,12 @@ export default function LoadingScreen() {
       >
         <img
           src="/LilithSVG/Welcome.svg"
-          className="w-64 h-64 mb-8 drop-shadow-lg"
+          className="w-98 h-98 mb-8 drop-shadow-lg"
           alt="Welcome"
         />
         <div className="space-y-4">
           <h1 className="text-4xl font-black text-[#ff8e8e] italic tracking-tighter">
-            "{welcomeLines[Math.floor(Math.random() * welcomeLines.length)]}"
+            "{welcomeLine}"
           </h1>
           <p className="text-[#5d4a4a] font-medium tracking-wide text-lg">
             Lilith is waking up... <br />
