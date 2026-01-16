@@ -9,6 +9,11 @@ A real-time drawing recognition web application built with Next.js and TensorFlo
 - Interactive drawing canvas and prediction UI built with Next.js + Tailwind CSS
 - Simple pipeline to convert/train models and load them in the web app
 
+### Live Demo
+You can view the live application here:  
+https://lilith-canvas.vercel.app/
+
+
 ## Demo / Usage
 1. Install dependencies:
 ```bash
